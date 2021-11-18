@@ -3,7 +3,7 @@
 from setuptools import setup
 
 # managed by bumpversion do not edit manually
-__version = '1.0.0'
+__version = '1.0.1'
 
 
 def main():

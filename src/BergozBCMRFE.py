@@ -28,7 +28,7 @@ import threading
 import time
 
 # managed by bumpversion do not edit manually
-__version = '1.0.0'
+__version = '1.0.1'
 
 
 # Python tango imports (includes legacy support)
@@ -254,7 +254,17 @@ class BCMRFE(DeviceImplementation):
             self.sampled.clear()
             self.answers.clear()
             if self.comm is None:
-                self.comm = Communicator(self.SerialDev, timeout=self.Timeout)
+                self.SerialDev = list(self.SerialDev)
+                for serial in self.SerialDev:
+                    try:
+                        self.comm = Communicator(serial, timeout=self.Timeout)
+                        break  # comm was correctly initialized
+                    except Exception as e:
+                        self.comm = None
+                        self.error_stream(
+                            'Init failed for %s: %s' % (serial, str(e)))
+                else:
+                    raise  # No sucess initializing comm
             msg = 'System seems OK'
             self.info_stream(msg)
             self._set_state(tango.DevState.ON, msg, force_init=True)
@@ -610,10 +620,17 @@ class BCMRFEClass(tango.DeviceClass):
     # Device Properties
     device_property_list = {
         'SerialDev':
-            [tango.DevString,
-             'Device name to connect to. May be a system serial device (e.g. '
-             '/dev/ttyACM0) or a tango serial device (e.g. SR/DI/SerBergoz)',
-             '/dev/ttyACM0'],
+            [tango.DevVarStringArray,
+             'List of device names to connect to. It may contain a single '
+             'value or different values. In case more than one values is '
+             'provided communication will be tried with all them before '
+             'giving up. We have observed that when the instrument is '
+             'rebooted and/or the usb cable is plugged/unplugged the os will '
+             'switch the serial dev name between ttyACM0 and ttyACM1. The '
+             'entries may be a system serial device (e.g. /dev/ttyACM0) or a '
+             'tango serial device (e.g. SR/DI/SerialBergoz)',
+             # default value
+             ['/dev/ttyACM0', '/dev/ttyACM1']],
         'BaudRate':
             [tango.DevShort,
              'Baudrate (used only if using a system serial)',
